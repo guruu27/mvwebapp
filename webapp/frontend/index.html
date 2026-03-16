@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microvellum Database - Project Selection</title>
+    <link rel="stylesheet" href="css/styles.css?v=2">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏗️ Microvellum Database Explorer</h1>
+            <p>Manufacturing Work Order Management System</p>
+        </header>
+
+        <main id="app">
+            <!-- Loading State -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Loading projects...</p>
+            </div>
+
+            <!-- Project Selection View -->
+            <div id="project-view" class="view" style="display: none;">
+                <h2>Select a Project</h2>
+                <div id="project-grid" class="project-grid"></div>
+            </div>
+
+            <!-- Work Order View -->
+            <div id="workorder-view" class="view" style="display: none;">
+                <div class="breadcrumb">
+                    <button id="back-to-projects">← Back to Projects</button>
+                    <span id="current-project"></span>
+                </div>
+                
+                <h2>Work Orders</h2>
+                <div id="workorder-grid" class="workorder-grid"></div>
+            </div>
+
+            <!-- Schema Detail View -->
+            <div id="schema-view" class="view" style="display: none;">
+                <div class="breadcrumb">
+                    <button id="back-to-workorders">← Back to Work Orders</button>
+                    <span id="current-schema"></span>
+                </div>
+
+                <div class="schema-content">
+                    <!-- Work Order Processing Details -->
+                    <div class="workorder-processing-view">
+                        <h2>Work Order Processing Flow</h2>
+                        
+                        <div id="processing-tree" class="processing-tree"></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons (Hidden for now) -->
+                <div class="action-buttons" style="display: none;">
+                        <div class="flow-section core-section">
+                            <h3>Core Tables</h3>
+                            <div class="flow-row">
+                                <div class="table-box products">
+                                    <div class="table-header">Products</div>
+                                    <div class="table-content" id="products-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="flow-arrow">→</div>
+                                <div class="table-box parts">
+                                    <div class="table-header">Parts</div>
+                                    <div class="table-content" id="parts-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flow-divider">↓</div>
+
+                        <div class="flow-section optimization-section">
+                            <h3>Sheet Optimization Flow</h3>
+                            <div class="flow-row">
+                                <div class="table-box optimization">
+                                    <div class="table-header">OptimizationResults</div>
+                                    <div class="table-content" id="optimization-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                    <div class="table-note">Bridge Table (0-based Index)</div>
+                                </div>
+                                <div class="flow-arrow complex">→<br>Index+1</div>
+                                <div class="table-box sheets">
+                                    <div class="table-header">PlacedSheets</div>
+                                    <div class="table-content" id="placedsheets-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                    <div class="table-note">1-based Index</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flow-divider">↓</div>
+
+                        <div class="flow-section processing-section">
+                            <h3>Part Processing Flow</h3>
+                            <div class="flow-row multi">
+                                <div class="table-box processing">
+                                    <div class="table-header">Routes</div>
+                                    <div class="table-content" id="routes-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="table-box processing">
+                                    <div class="table-header">Edgebanding</div>
+                                    <div class="table-content" id="edgebanding-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="table-box processing">
+                                    <div class="table-header">Drills</div>
+                                    <div class="table-content" id="drills-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                </div>
+                                <div class="table-box processing">
+                                    <div class="table-header">Hardware</div>
+                                    <div class="table-content" id="hardware-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flow-section stations-section">
+                            <h3>Processing Stations</h3>
+                            <div class="flow-row">
+                                <div class="table-box stations">
+                                    <div class="table-header">PartsProcessingStations</div>
+                                    <div class="table-content" id="stations-info">
+                                        <div class="table-stat">Loading...</div>
+                                    </div>
+                                    <div class="table-note">Use ROW_NUMBER for sequence</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Table Details Grid -->
+                    <div class="table-details-section">
+                        <h3>All Tables in Schema</h3>
+                        <div id="all-tables-grid" class="table-grid"></div>
+                <!-- Action Buttons (Hidden for now) -->
+                <div class="action-buttons" style="display: none;">
+                    <button class="action-btn" onclick="openQueryBuilder()">
+                        📊 Query Builder
+                    </button>
+                    <button class="action-btn" onclick="openSheetTracking()">
+                        📋 Sheet Tracking
+                    </button>
+                    <button class="action-btn" onclick="viewRelationships()">
+                        🔗 View Relationships
+                    </button>
+                    <button class="action-btn" onclick="exportSchema()">
+                        💾 Export Schema
+                    </button>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="error-message" style="display: none;"></div>
+        </main>
+    </div>
+
+    <!-- Modal for Query Builder -->
+    <div id="query-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Query Builder</h3>
+                <button class="close-btn" onclick="closeModal('query-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="sql-query" placeholder="Enter SQL query...&#10;Example:&#10;SELECT TOP 100 * FROM [schema].Parts"></textarea>
+                <button onclick="executeQuery()">Execute Query</button>
+                <div id="query-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Sheet Tracking -->
+    <div id="sheet-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Sheet Tracking</h3>
+                <button class="close-btn" onclick="closeModal('sheet-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Scrapped Sheet Number:</label>
+                    <input type="number" id="scrapped-sheet" placeholder="e.g., 3">
+                </div>
+                <div class="form-group">
+                    <label>Scrapped at Station:</label>
+                    <input type="number" id="scrapped-station" placeholder="e.g., 2">
+                </div>
+                <button onclick="runSheetTracking()">Run Sheet Tracking</button>
+                <div id="sheet-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

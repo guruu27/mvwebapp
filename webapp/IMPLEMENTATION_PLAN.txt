@@ -1,0 +1,1182 @@
+================================================================================
+  MICROVELLUM DATABASE EXPLORER - DETAILED IMPLEMENTATION PLAN
+  A Step-by-Step Guide for Software Engineers
+================================================================================
+
+Document Version: 1.0
+Date: 2026-03-13
+System: Manufacturing Work Order Management System
+Stack: FastAPI (Python) + Vanilla HTML/CSS/JS + SQL Server (pyodbc)
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  1. PROJECT OVERVIEW & ARCHITECTURE
+  2. PREREQUISITES & ENVIRONMENT SETUP
+  3. DATABASE SCHEMA UNDERSTANDING
+  4. BACKEND: FastAPI APPLICATION (main.py)
+     4.1 Configuration & Database Connection
+     4.2 Pydantic Models
+     4.3 Endpoint: GET /projects
+     4.4 Endpoint: GET /projects/{project_number}/workorders
+     4.5 Endpoint: GET /schema/{schema_name}/info
+     4.6 Endpoint: GET /schema/{schema_name}/tables
+     4.7 Endpoint: GET /schema/{schema_name}/relationships
+     4.8 Endpoint: GET /schema/{schema_name}/workorder-details (CORE)
+     4.9 Endpoint: POST /query (Query Builder)
+     4.10 Endpoint: POST /sheet-tracking
+     4.11 Static File Serving & Frontend Route
+  5. FRONTEND: HTML STRUCTURE (index.html)
+  6. FRONTEND: JAVASCRIPT APPLICATION (app.js)
+     6.1 API Communication Layer
+     6.2 View Navigation System
+     6.3 Project Display
+     6.4 Work Order Display
+     6.5 Production Plan Display (displayWorkOrderProcessing)
+     6.6 Query Builder Modal
+     6.7 Sheet Tracking Modal
+  7. FRONTEND: CSS STYLING (styles.css)
+  8. HOW TO RUN THE APPLICATION
+  9. DATA FLOW: END-TO-END WALKTHROUGH
+  10. KNOWN LIMITATIONS & FUTURE WORK
+  11. TROUBLESHOOTING GUIDE
+
+
+================================================================================
+1. PROJECT OVERVIEW & ARCHITECTURE
+================================================================================
+
+PURPOSE:
+This webapp provides a visual explorer for Microvellum manufacturing data that
+has been migrated from SQL Server Compact Edition (.sdf) files into SQL Server.
+It allows shop-floor managers and engineers to:
+  - Browse projects and their work orders
+  - View production plan summaries (CNC nesting, panel saw, edgebanding, etc.)
+  - See per-sheet detail breakdowns (parts, materials, drill operations)
+  - Run ad-hoc SQL queries against any schema
+  - Perform sheet tracking and scrap analysis
+
+ARCHITECTURE DIAGRAM:
+
+  +--------------------+        HTTP (port 8000)        +--------------------+
+  |                    |  <---------------------------> |                    |
+  |    FRONTEND        |                                |    BACKEND         |
+  |  (Vanilla JS)      |                                |  (FastAPI/Python)  |
+  |                    |                                |                    |
+  |  index.html        |    GET /projects               |  main.py           |
+  |  js/app.js         |    GET /projects/X/workorders  |  .env              |
+  |  css/styles.css    |    GET /schema/X/workorder-    |  requirements.txt  |
+  |                    |        details                 |                    |
+  +--------------------+    POST /query                 +--------+-----------+
+                            POST /sheet-tracking                 |
+                                                                 | pyodbc
+                                                                 |
+                                                        +--------v-----------+
+                                                        |                    |
+                                                        |  SQL Server        |
+                                                        |  (SQLEXPRESS)      |
+                                                        |  Database: guru    |
+                                                        |                    |
+                                                        |  Schemas:          |
+                                                        |  P1987_D018       |
+                                                        |  P1987_D019       |
+                                                        |  P1990_D001       |
+                                                        |  ...               |
+                                                        +--------------------+
+
+DIRECTORY STRUCTURE:
+
+  webapp/
+  +-- backend/
+  |   +-- main.py              # FastAPI app (922 lines) - ALL backend logic
+  |   +-- .env                 # Database connection config
+  |   +-- requirements.txt     # Python dependencies
+  |   +-- venv/                # Python virtual environment
+  +-- frontend/
+      +-- index.html           # Single-page HTML (211 lines)
+      +-- js/
+      |   +-- app.js           # All frontend logic (478 lines)
+      +-- css/
+          +-- styles.css       # Complete styling (1408 lines)
+
+
+================================================================================
+2. PREREQUISITES & ENVIRONMENT SETUP
+================================================================================
+
+REQUIRED SOFTWARE:
+  - Python 3.10+ (tested with 3.11/3.12)
+  - SQL Server Express (instance: PSF-GuruprasadT\SQLEXPRESS)
+  - ODBC Driver 18 for SQL Server
+  - A modern web browser (Chrome, Edge, Firefox)
+
+STEP-BY-STEP SETUP:
+
+Step 2.1: Clone/Copy the webapp folder to your machine.
+
+Step 2.2: Create and activate a Python virtual environment:
+
+    cd webapp\backend
+    python -m venv venv
+    venv\Scripts\activate           # Windows
+    # OR: source venv/bin/activate  # Linux/Mac
+
+Step 2.3: Install Python dependencies:
+
+    pip install -r requirements.txt
+
+    The requirements are:
+      fastapi==0.104.1       # Web framework
+      uvicorn[standard]==0.24.0  # ASGI server
+      pyodbc==5.0.1          # SQL Server ODBC driver
+      pydantic==2.5.0        # Data validation
+      python-multipart==0.0.6  # Form data parsing
+      python-dotenv==1.0.0   # .env file loading
+
+Step 2.4: Configure the database connection in .env:
+
+    # File: webapp/backend/.env
+    DB_SERVER=PSF-GuruprasadT\SQLEXPRESS
+    DB_DATABASE=guru
+    DB_DRIVER=ODBC Driver 18 for SQL Server
+    DB_TRUSTED_CONNECTION=yes
+    DB_USE_WINDOWS_AUTH=true
+
+    IMPORTANT NOTES:
+    - The DB_DRIVER must match what's installed on your system.
+      To check: Run "odbcad32.exe" -> Drivers tab -> look for
+      "ODBC Driver 17 for SQL Server" or "ODBC Driver 18 for SQL Server"
+    - DB_TRUSTED_CONNECTION=yes uses Windows Authentication (no password needed)
+    - The connection string also includes TrustServerCertificate=yes
+      (required for ODBC Driver 18 to avoid SSL certificate errors)
+
+Step 2.5: Verify the database has migrated schemas:
+
+    Open SSMS or sqlcmd and run:
+      SELECT DISTINCT TABLE_SCHEMA
+      FROM INFORMATION_SCHEMA.TABLES
+      WHERE TABLE_SCHEMA LIKE 'P%_%'
+
+    You should see schemas like P1987_D018, P1987_D019, etc.
+    Each schema contains tables: Products, Parts, OptimizationResults,
+    PlacedSheets, Edgebanding, Routes, DrillsHorizontal, DrillsVertical,
+    WorkOrderBatches, PartsProcessingStations, etc.
+
+
+================================================================================
+3. DATABASE SCHEMA UNDERSTANDING
+================================================================================
+
+Each work order is stored in its own SQL Server schema named P{project}_{drawing}
+(e.g., P1987_D018). All schemas share the same table structure:
+
+CORE TABLES (every schema has these):
++------------------------------------------------------------------+
+| Table                  | Description                              |
++------------------------------------------------------------------+
+| Products               | Cabinet/product definitions with qty     |
+| Parts                  | Individual parts cut from sheet stock    |
+| OptimizationResults    | Nesting optimization bridge table        |
+| PlacedSheets           | Physical sheets of material              |
+| WorkOrderBatches       | Batch groupings for the work order       |
++------------------------------------------------------------------+
+
+PROCESSING TABLES:
++------------------------------------------------------------------+
+| Routes                 | CNC toolpath routing data                |
+| Edgebanding            | Edge banding operations and lengths      |
+| DrillsHorizontal       | Horizontal drilling operations           |
+| DrillsVertical         | Vertical drilling operations             |
+| PartsProcessingStations| Which station processes which part       |
++------------------------------------------------------------------+
+
+KEY RELATIONSHIPS (via LinkID columns):
+  Products.LinkID        <-- Parts.LinkIDProduct
+  Parts.LinkID           <-- OptimizationResults.LinkIDPart
+  Parts.LinkID           <-- Routes.LinkIDPart
+  Parts.LinkID           <-- Edgebanding.LinkIDPart
+  Parts.LinkID           <-- DrillsHorizontal.LinkIDPart
+  Parts.LinkID           <-- DrillsVertical.LinkIDPart
+  PlacedSheets.LinkID    <-- OptimizationResults.LinkIDSheet
+  WorkOrderBatches.LinkID <-- PlacedSheets.LinkIDWorkOrderBatch
+
+CRITICAL: LinkID JOIN GOTCHA
+  LinkID values are strings that often have trailing whitespace from the SDF
+  migration. ALL joins on LinkID columns MUST use LTRIM(RTRIM()) on both sides:
+
+    WRONG:  ON opt.LinkIDPart = pt.LinkID
+    RIGHT:  ON LTRIM(RTRIM(opt.LinkIDPart)) = LTRIM(RTRIM(pt.LinkID))
+
+  Failure to do this results in 0 rows returned from joins.
+
+PROCESSING STATION IDs (hardcoded):
+  '21BMOJSH9M90'    = CNC Nesting station
+  '1966O1PHUNP10'   = Panel Saw station (variant 1)
+  '1966O9J0UOZ10'   = Panel Saw station (variant 2)
+
+  These are Microvellum-internal GUIDs for the processing stations.
+
+SPECIAL PART FLAGS:
+  P2P (Point-to-Point): Identified by Face6Barcode being non-empty
+    WHERE LEN(LTRIM(RTRIM(ISNULL(pt.Face6Barcode, '')))) > 0
+
+  Miter: Identified by Comments containing '@'
+    WHERE pt.Comments LIKE '%@%'
+
+  Solid: Identified by PlacedSheets.Name containing 'Solid' but not 'Solid Surface'
+    WHERE Name LIKE '%Solid%' AND Name NOT LIKE '%Solid Surface%'
+
+
+================================================================================
+4. BACKEND: FastAPI APPLICATION (main.py)
+================================================================================
+
+The entire backend is a SINGLE FILE: main.py (922 lines).
+It handles everything: API endpoints, database queries, static file serving.
+
+--------------------------------------------------------------------------------
+4.1 Configuration & Database Connection (Lines 1-51)
+--------------------------------------------------------------------------------
+
+File: webapp/backend/main.py
+
+WHAT IT DOES:
+  - Loads .env file using python-dotenv
+  - Creates FastAPI app with CORS middleware (allow all origins)
+  - Reads DB_SERVER, DB_DATABASE, DB_DRIVER, DB_TRUSTED_CONNECTION from env
+  - Provides get_connection() function that builds an ODBC connection string
+
+CONNECTION STRING FORMAT:
+    DRIVER={ODBC Driver 18 for SQL Server};
+    SERVER=PSF-GuruprasadT\SQLEXPRESS;
+    DATABASE=guru;
+    Trusted_Connection=yes;
+    TrustServerCertificate=yes;
+
+CORS CONFIGURATION:
+    allow_origins=["*"]       # Any origin can call the API
+    allow_credentials=True
+    allow_methods=["*"]       # GET, POST, etc.
+    allow_headers=["*"]
+
+    This is necessary because the frontend (served on port 8000 at /app)
+    makes fetch() calls to the same server. If you ever serve the frontend
+    from a different port/domain, CORS must be configured.
+
+IMPLEMENTATION NOTE:
+    Each endpoint creates its own connection and closes it when done.
+    There is NO connection pooling. For production, you would add a
+    connection pool (e.g., using databases library or SQLAlchemy).
+
+--------------------------------------------------------------------------------
+4.2 Pydantic Models (Lines 52-79)
+--------------------------------------------------------------------------------
+
+Four Pydantic models define the API response shapes:
+
+    class Project:
+        project_number: str    # e.g., "1987"
+        project_name: str      # e.g., "Hollywood Casino Aurora"
+        work_order_count: int  # Number of work orders (schemas)
+
+    class WorkOrder:
+        schema_name: str       # e.g., "P1987_D018"
+        project_number: str    # e.g., "1987"
+        drawing_number: str    # e.g., "D018"
+        work_order_name: str   # From Products.WorkOrderName
+        table_count: int       # Number of tables in this schema
+        total_rows: int        # products_count + parts_count
+        products_count: int
+        parts_count: int
+
+    class QueryRequest:
+        query: str             # Raw SQL string
+
+    class SheetTrackingRequest:
+        schema_name: str
+        scrapped_sheet_number: Optional[int]
+        scrapped_station: Optional[int]
+
+--------------------------------------------------------------------------------
+4.3 Endpoint: GET /projects (Lines 99-160)
+--------------------------------------------------------------------------------
+
+PURPOSE: Returns all unique projects discovered from schema names.
+
+ALGORITHM:
+  1. Query INFORMATION_SCHEMA.TABLES for all schemas matching 'P%_%'
+  2. Extract unique project numbers using regex: P(\d+)_
+     e.g., P1987_D018 -> project_number = "1987"
+  3. Group schemas by project number
+  4. For each project, get the work order name from the first schema's
+     Products.WorkOrderName column (TOP 1)
+  5. Count schemas per project -> work_order_count
+  6. Sort by project number (numeric)
+  7. Return list of Project objects
+
+EXAMPLE RESPONSE:
+    [
+      {
+        "project_number": "1987",
+        "project_name": "Hollywood Casino Aurora",
+        "work_order_count": 5
+      },
+      {
+        "project_number": "1990",
+        "project_name": "Some Other Project",
+        "work_order_count": 3
+      }
+    ]
+
+NOTE: Uses bare except clauses for project name lookup (fallback to
+"Project {num}") because not all schemas have a Products table.
+
+--------------------------------------------------------------------------------
+4.4 Endpoint: GET /projects/{project_number}/workorders (Lines 162-236)
+--------------------------------------------------------------------------------
+
+PURPOSE: Returns all work orders (schemas) for a given project.
+
+ALGORITHM:
+  1. Query INFORMATION_SCHEMA.TABLES for schemas matching P{project_number}_%
+  2. For each schema:
+     a. Extract drawing number via regex: P\d+_(D\d+) -> "D018"
+     b. Get work order name from Products.WorkOrderName (TOP 1)
+     c. Count tables in the schema
+     d. Count Products rows
+     e. Count Parts rows
+  3. Return list of WorkOrder objects
+
+EXAMPLE RESPONSE:
+    [
+      {
+        "schema_name": "P1987_D018",
+        "project_number": "1987",
+        "drawing_number": "D018",
+        "work_order_name": "Crow's Nest Bar",
+        "table_count": 14,
+        "total_rows": 287,
+        "products_count": 12,
+        "parts_count": 275
+      }
+    ]
+
+NOTE: The drawing_number regex (P\d+_(D\d+)) assumes drawings start with "D".
+In practice, some drawings may not start with "D" - the regex falls back to
+"Unknown" in that case.
+
+--------------------------------------------------------------------------------
+4.5 Endpoint: GET /schema/{schema_name}/info (Lines 238-290)
+--------------------------------------------------------------------------------
+
+PURPOSE: Returns metadata about all tables in a schema (name, row count, columns).
+
+NOT CURRENTLY USED BY FRONTEND but available for debugging/future use.
+
+--------------------------------------------------------------------------------
+4.6 Endpoint: GET /schema/{schema_name}/tables (Lines 292-334)
+--------------------------------------------------------------------------------
+
+PURPOSE: Returns table list with row and column counts.
+
+NOT CURRENTLY USED BY FRONTEND but available for debugging/future use.
+
+--------------------------------------------------------------------------------
+4.7 Endpoint: GET /schema/{schema_name}/relationships (Lines 336-385)
+--------------------------------------------------------------------------------
+
+PURPOSE: Discovers foreign key relationships by scanning for LinkID* columns.
+
+Uses a hardcoded target_map to resolve LinkID column names to target tables:
+    LinkIDWorkOrder -> WorkOrder
+    LinkIDProduct -> Products
+    LinkIDPart -> Parts
+    LinkIDProcessingStation -> ProcessingStation
+    etc.
+
+NOT CURRENTLY USED BY FRONTEND but available for future relationship visualization.
+
+--------------------------------------------------------------------------------
+4.8 Endpoint: GET /schema/{schema_name}/workorder-details (Lines 388-757)
+                             *** THIS IS THE CORE ENDPOINT ***
+--------------------------------------------------------------------------------
+
+PURPOSE: Returns the complete production plan for a work order.
+This is the most complex endpoint (370 lines) and drives the main data view.
+
+It executes TWO major SQL queries and builds a hierarchical JSON response.
+
+--- QUERY 1: Production Plan Summary (Lines 413-511) ---
+
+This query produces aggregate metrics for the entire work order:
+
+  Metrics computed:
+    - NestSht / NestPrts: CNC nesting sheet count and part count
+    - PnlSht / PnlPrts: Panel saw sheet count and part count
+    - Edge: Total edgebanding in linear feet (Quantity * 0.00105 conversion)
+    - P2P: Count of point-to-point parts (Face6Barcode non-empty)
+    - Miter: Count of miter parts (Comments contains '@')
+    - Solid: Solid stock linear footage
+    - Product / TtlPrts: Total products and total parts
+    - NestingHours: nest_parts * 9.5 min / 60
+    - PanelHours: panel_parts * 3.5 min / 60
+    - P2pHours: p2p_count * 5.0 min / 60 * 1.12 (12% overhead)
+    - MiterHours: miter_count * 5.0 min / 60
+    - EdgingHours: edge_linft * 2.8 min / 60
+    - SolidHours: solid_qty * 5.0 min / 60
+    - BatchName: from WorkOrderBatches.Name
+
+  JOIN structure:
+    FROM OptimizationResults (grouped by station/batch)
+      LEFT JOIN PlacedSheets (sheet count where Width > 350mm)
+      LEFT JOIN Products (sum of quantities)
+      LEFT JOIN Edgebanding (sum converted to linear feet)
+      LEFT JOIN OptimizationResults again (total parts)
+      INNER JOIN WorkOrderBatches (batch name)
+      LEFT JOIN Parts (P2P count via Face6Barcode)
+      LEFT JOIN Parts (Miter count via Comments LIKE '%@%')
+      LEFT JOIN PlacedSheets (Solid stock calculation)
+
+  Station detection uses hardcoded IDs:
+    '21BMOJSH9M90' = CNC Nesting
+    '1966O1PHUNP10' / '1966O9J0UOZ10' = Panel Saw
+
+  The query results in multiple rows (one per station/batch combo).
+  Lines 526-565 AGGREGATE these into a single summary dict.
+
+--- QUERY 2: Per-Sheet Detail (Lines 583-656) ---
+
+This query returns every part on every sheet with full metrics.
+Uses a CTE (PartMetrics) to pre-compute per-part stats.
+
+  CTE: PartMetrics
+    - Joins Parts with Routes (toolpath length), Edgebanding (edge length),
+      optionally DrillsHorizontal and DrillsVertical
+    - Computes IsP2P and IsMiter flags
+    - All LinkID joins use LTRIM(RTRIM()) on BOTH sides
+
+  Conditional table joins (Lines 571-581):
+    The code checks if DrillsHorizontal and DrillsVertical tables exist
+    in the schema (via INFORMATION_SCHEMA lookup at lines 400-407).
+    If missing, it substitutes "0 AS HorizontalDrills" instead of joining.
+
+  Main SELECT joins:
+    PlacedSheets -> OptimizationResults -> PartMetrics -> Products -> WorkOrderBatches
+    ORDER BY: BatchName, StationID, SheetIndex, ProductName, PartName
+
+--- HIERARCHICAL DATA BUILDING (Lines 662-746) ---
+
+The flat query results are converted into a nested structure:
+
+    processing_stations: [
+      {
+        station_id: "21BMOJSH9M90",
+        station_name: "CNC Nesting",
+        materials: [
+          {
+            material_name: "3/4 Melamine White",
+            sheet_count: 5,
+            part_count: 42,
+            products: [ {name: "Base Cabinet", quantity: 2}, ... ],
+            sheets: [
+              {
+                sheet_number: 1,
+                length_mm: 2440,
+                width_mm: 1220,
+                parts: [
+                  {
+                    name: "Left Side",
+                    length_mm: 762,
+                    width_mm: 584,
+                    material: "3/4 Melamine White",
+                    toolpath_m: 3.45,
+                    edgeband_m: 2.10,
+                    area_sqm: 0.4451,
+                    is_p2p: 0,
+                    is_miter: 0,
+                    h_drills: 4,
+                    v_drills: 2,
+                    product_name: "Base Cabinet",
+                    product_qty: 2
+                  },
+                  ... more parts
+                ]
+              },
+              ... more sheets
+            ]
+          },
+          ... more materials
+        ]
+      },
+      ... more stations
+    ]
+
+FINAL RESPONSE SHAPE:
+    {
+      "schema_name": "P1987_D018",
+      "summary": { ... aggregate metrics ... },
+      "processing_stations": [ ... hierarchical data ... ],
+      "total_stations": 2
+    }
+
+--------------------------------------------------------------------------------
+4.9 Endpoint: POST /query (Lines 760-813)
+--------------------------------------------------------------------------------
+
+PURPOSE: Executes user-provided SQL queries (Query Builder feature).
+
+SAFETY MEASURES:
+  1. Only allows queries starting with SELECT
+  2. Blocks dangerous keywords: DROP, DELETE, TRUNCATE, ALTER, INSERT, UPDATE, CREATE
+  3. Limits results to 1000 rows
+  4. Returns execution time for performance monitoring
+
+REQUEST: { "query": "SELECT TOP 100 * FROM [P1987_D018].Parts" }
+RESPONSE: { "columns": [...], "rows": [...], "row_count": N, "execution_time": 0.05 }
+
+NOTE: The keyword blocklist is basic - a sophisticated user could bypass it
+(e.g., using comments or string concatenation). For production, use a proper
+SQL parser or parameterized stored procedures.
+
+--------------------------------------------------------------------------------
+4.10 Endpoint: POST /sheet-tracking (Lines 815-906)
+--------------------------------------------------------------------------------
+
+PURPOSE: Analyzes what happens when a sheet is scrapped at a given station.
+
+ALGORITHM:
+  Uses two CTEs:
+  1. SheetProcessing: Joins Parts -> OptimizationResults -> PlacedSheets ->
+     PartsProcessingStations, computing ROW_NUMBER for process sequence
+  2. PartMetrics: Aggregates per-part station counts
+  3. Final SELECT: Marks parts as 'SCRAPPED' or 'OK' based on the scrapped
+     sheet number and station parameters
+
+REQUEST:
+    {
+      "schema_name": "P1987_D018",
+      "scrapped_sheet_number": 3,
+      "scrapped_station": 2
+    }
+
+RESPONSE: Same shape as /query (columns, rows, row_count)
+
+NOTE: This endpoint has a potential SQL injection in the scrapped_sheet and
+scrapped_station parameters (they're interpolated directly). Should be
+parameterized for production use.
+
+--------------------------------------------------------------------------------
+4.11 Static File Serving & Frontend Route (Lines 908-922)
+--------------------------------------------------------------------------------
+
+The backend serves the frontend directly:
+
+    FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
+    # Mount static directories
+    app.mount("/css", StaticFiles(directory=frontend/css))
+    app.mount("/js", StaticFiles(directory=frontend/js))
+
+    # Serve index.html at /app
+    @app.get("/app")
+    def serve_frontend():
+        return FileResponse("frontend/index.html")
+
+So the full application is accessible at: http://localhost:8000/app
+
+The API root (http://localhost:8000/) returns a JSON listing of endpoints.
+
+Server startup (Line 919-921):
+    if __name__ == "__main__":
+        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+    - host="0.0.0.0" allows access from other machines on the network
+    - port=8000 is the fixed port
+    - reload=True enables auto-reload on code changes (dev mode)
+
+
+================================================================================
+5. FRONTEND: HTML STRUCTURE (index.html)
+================================================================================
+
+File: webapp/frontend/index.html (211 lines)
+
+The app is a Single-Page Application (SPA) with view switching via JavaScript.
+There are 3 main views + 2 modals, all in a single HTML file.
+
+DOCUMENT STRUCTURE:
+
+    <body>
+      <div class="container">
+        <header>
+          Microvellum Database Explorer title + subtitle
+        </header>
+
+        <main id="app">
+
+          <!-- Loading spinner (shown during API calls) -->
+          <div id="loading">...</div>
+
+          <!-- VIEW 1: Project Selection -->
+          <div id="project-view" class="view">
+            <h2>Select a Project</h2>
+            <div id="project-grid" class="project-grid">
+              <!-- Dynamically populated by JS -->
+            </div>
+          </div>
+
+          <!-- VIEW 2: Work Orders for selected project -->
+          <div id="workorder-view" class="view">
+            <div class="breadcrumb">
+              <button id="back-to-projects">Back</button>
+              <span id="current-project">Project 1987 - Hollywood Casino</span>
+            </div>
+            <h2>Work Orders</h2>
+            <div id="workorder-grid" class="workorder-grid">
+              <!-- Dynamically populated by JS -->
+            </div>
+          </div>
+
+          <!-- VIEW 3: Schema Detail (Production Plan) -->
+          <div id="schema-view" class="view">
+            <div class="breadcrumb">
+              <button id="back-to-workorders">Back</button>
+              <span id="current-schema">P1987_D018</span>
+            </div>
+            <div class="schema-content">
+              <h2>Work Order Processing Flow</h2>
+              <div id="processing-tree" class="processing-tree">
+                <!-- Summary cards + detail table rendered by JS -->
+              </div>
+            </div>
+            <!-- Hidden action buttons for future features -->
+            <!-- Hidden table details section for future features -->
+          </div>
+
+          <!-- Error message bar -->
+          <div id="error-message" class="error-message">...</div>
+
+        </main>
+      </div>
+
+      <!-- MODAL: Query Builder -->
+      <div id="query-modal" class="modal">
+        <textarea id="sql-query"></textarea>
+        <button onclick="executeQuery()">Execute Query</button>
+        <div id="query-results"></div>
+      </div>
+
+      <!-- MODAL: Sheet Tracking -->
+      <div id="sheet-modal" class="modal">
+        <input id="scrapped-sheet" type="number">
+        <input id="scrapped-station" type="number">
+        <button onclick="runSheetTracking()">Run Sheet Tracking</button>
+        <div id="sheet-results"></div>
+      </div>
+
+      <script src="js/app.js"></script>
+    </body>
+
+VIEW VISIBILITY:
+  All views start with style="display: none;"
+  JavaScript toggles visibility by setting display: 'block' or 'none'
+  Only one view is visible at a time.
+
+HIDDEN SECTIONS (Lines 57-164):
+  There are several hidden sections (style="display: none;") that contain
+  placeholder HTML for future features:
+  - Core Tables flow diagram (Products -> Parts)
+  - Sheet Optimization flow (OptimizationResults -> PlacedSheets)
+  - Part Processing flow (Routes, Edgebanding, Drills, Hardware)
+  - Processing Stations section
+  - Action buttons (Query Builder, Sheet Tracking, Relationships, Export)
+  - All Tables grid
+
+  These are NOT currently rendered. They appear to be from an earlier version
+  and were hidden when the unified production plan view was implemented.
+
+
+================================================================================
+6. FRONTEND: JAVASCRIPT APPLICATION (app.js)
+================================================================================
+
+File: webapp/frontend/js/app.js (478 lines)
+
+The entire frontend logic is in one file with no build tools or frameworks.
+
+--------------------------------------------------------------------------------
+6.1 API Communication Layer (Lines 1-32)
+--------------------------------------------------------------------------------
+
+API BASE URL auto-detection:
+    const API_BASE = `http://${window.location.hostname || 'localhost'}:8000`;
+
+    This means if you access the app at http://192.168.1.50:8000/app,
+    the API calls go to http://192.168.1.50:8000/projects, etc.
+    This makes the app work from any machine on the network.
+
+Generic API call wrapper:
+    async function apiCall(endpoint, options = {}) {
+        const response = await fetch(`${API_BASE}${endpoint}`, options);
+        if (!response.ok) throw new Error(error.detail);
+        return await response.json();
+    }
+
+    All API calls go through this function. On error, it calls showError()
+    which displays a red error bar for 5 seconds.
+
+--------------------------------------------------------------------------------
+6.2 View Navigation System (Lines 340-377)
+--------------------------------------------------------------------------------
+
+State variables:
+    let currentProject = null;   // { number, name }
+    let currentSchema = null;    // "P1987_D018"
+
+Navigation functions:
+    showProjectView()     -> shows #project-view, hides all others
+    showWorkOrderView()   -> shows #workorder-view, sets breadcrumb
+    showSchemaView()      -> shows #schema-view, sets breadcrumb
+
+    hideAllViews()        -> sets display:none on all .view elements
+
+Back buttons:
+    #back-to-projects -> calls showProjectView()
+    #back-to-workorders -> calls showWorkOrderView(currentProject)
+
+    These are set up in setupEventListeners() on DOMContentLoaded.
+
+--------------------------------------------------------------------------------
+6.3 Project Display (Lines 34-66)
+--------------------------------------------------------------------------------
+
+loadProjects():
+  1. Shows loading spinner
+  2. Calls GET /projects
+  3. Calls displayProjects(data)
+  4. Shows project view
+  5. Hides loading spinner
+
+displayProjects(projects):
+  Creates a card for each project:
+    <div class="project-card">
+      <div class="project-number">Project 1987</div>
+      <div class="project-name">Hollywood Casino Aurora</div>
+      <div class="project-stats">
+        <span>5 Work Orders</span>
+      </div>
+    </div>
+
+  Each card has a click handler: loadWorkOrders(project_number, project_name)
+
+--------------------------------------------------------------------------------
+6.4 Work Order Display (Lines 68-116)
+--------------------------------------------------------------------------------
+
+loadWorkOrders(projectNumber, projectName):
+  1. Saves currentProject = { number, name }
+  2. Calls GET /projects/{projectNumber}/workorders
+  3. Calls displayWorkOrders(data)
+  4. Shows work order view
+
+displayWorkOrders(workorders):
+  Creates a card for each work order:
+    <div class="workorder-card">
+      <div class="wo-header">
+        <div class="wo-number">D018</div>
+        <div class="wo-schema">P1987_D018</div>
+      </div>
+      <div class="wo-name">Crow's Nest Bar</div>
+      <div class="wo-stats">
+        <div class="stat">Tables: 14</div>
+        <div class="stat">Products: 12</div>
+        <div class="stat">Parts: 275</div>
+      </div>
+    </div>
+
+  Each card has a click handler: loadSchema(schema_name)
+
+--------------------------------------------------------------------------------
+6.5 Production Plan Display (Lines 118-337) *** MOST COMPLEX FUNCTION ***
+--------------------------------------------------------------------------------
+
+loadSchema(schemaName):
+  1. Saves currentSchema = schemaName
+  2. Calls GET /schema/{schemaName}/workorder-details
+  3. Calls displayWorkOrderProcessing(data)
+  4. Shows schema view
+
+displayWorkOrderProcessing(data):
+  This is the largest function (200 lines) that builds the entire
+  production plan view with two sections:
+
+  --- SECTION A: Summary Cards (Lines 149-206) ---
+
+  Renders 5 summary cards in a horizontal bar:
+
+  +----------+  +----------+  +----------+  +----------+  +----------+
+  |   CNC    |  |   SAW    |  |    EB    |  |   OPS    |  |   TOT    |
+  | Nesting  |  | Panel Saw|  |Edgebanding|  |Operations|  |  Totals  |
+  |          |  |          |  |          |  |          |  |          |
+  | 5 sheets |  | 3 sheets |  | 120 ft   |  | P2P: 8   |  | 12 prod  |
+  | 42 parts |  | 18 parts |  |          |  | Miter: 3 |  | 275 parts|
+  |          |  |          |  |          |  | Solid: -  |  |          |
+  | 6.7 hrs  |  | 1.1 hrs  |  | 5.6 hrs  |  |          |  | Batch A  |
+  +----------+  +----------+  +----------+  +----------+  +----------+
+
+  Each card has:
+    .summary-icon  (CNC, SAW, EB, OPS, TOT)
+    .summary-title (name)
+    .summary-metrics (key numbers)
+    .summary-hours (if applicable)
+
+  --- SECTION B: Detail Table (Lines 208-336) ---
+
+  Renders a unified HTML table with complex rowspan merging:
+
+  +------------------+-----------+------+----------+-------+------+------+------+------+------------------+------------------+
+  | Processing       | Material  |Sheet#| Size(mm) |ToolPth|H.Drll|V.Drll| Edge |Miter | Parts            | Products         |
+  | Station          |           |      |          | (m)   |      |      | (m)  |      |                  |                  |
+  +------------------+-----------+------+----------+-------+------+------+------+------+------------------+------------------+
+  | CNC Nesting      | 3/4 Mel   |  1   |2440x1220 | 3.45  |  4   |  2   | 2.10 |  -   | Left Side [P2P]  | Base Cabinet (x2)|
+  | (rowspan=42)     | White     |      |          |       |      |      |      |      | 762x584 | 0.4451 |                  |
+  |                  | (rs=20)   +------+----------+-------+------+------+------+------+------------------+------------------+
+  |                  |           |  2   |2440x1220 | 4.12  |  6   |  0   | 3.05 |  1   | Top Panel        | Wall Cabinet (x1)|
+  |                  |           |      |          |       |      |      |      |      | 914x305 | 0.2788 |                  |
+  +------------------+-----------+------+----------+-------+------+------+------+------+------------------+------------------+
+
+  ROWSPAN LOGIC (Lines 246-329):
+    The code builds this table with 3 levels of rowspan merging:
+
+    Level 1: Processing Station (spans all rows for that station)
+    Level 2: Material (spans all rows for that material within a station)
+    Level 3: Sheet (spans all parts on that sheet)
+
+    Row counting algorithm:
+      stationRowCount = sum of all parts across all materials/sheets
+      materialRowCount = sum of all parts across all sheets for this material
+      sheetRowCount = number of parts on this sheet
+
+    The first row of each group gets the rowspan TD, subsequent rows skip it.
+
+    Variables track this:
+      stationFirstRow, materialFirstRow, sheetFirstRow (boolean flags)
+
+  SHEET-LEVEL METRICS (Lines 268-273):
+    For each sheet, the code aggregates across its parts:
+      sheetToolPath = sum of all parts' toolpath_m
+      sheetEdgeBand = sum of all parts' edgeband_m
+      sheetHDrills = sum of all parts' h_drills
+      sheetVDrills = sum of all parts' v_drills
+      sheetMiter = count of parts where is_miter = true
+
+  PART CELL CONTENT (Lines 319-322):
+    Each part cell shows:
+      "Left Side" [P2P badge] [Miter badge]
+      762x584 | 0.4451 m2
+
+    Badges: <span class="badge p2p">P2P</span>
+            <span class="badge miter">Miter</span>
+
+  PRODUCT CELL CONTENT:
+    "Base Cabinet (x2)"  where x2 = product quantity
+
+--------------------------------------------------------------------------------
+6.6 Query Builder Modal (Lines 378-433)
+--------------------------------------------------------------------------------
+
+openQueryBuilder():
+  Opens #query-modal, pre-fills textarea with:
+    SELECT TOP 100 * FROM [{currentSchema}].Parts
+
+executeQuery():
+  1. Gets SQL from textarea
+  2. POSTs to /query with { query: sql }
+  3. Calls displayQueryResults(data, resultsDiv)
+
+displayQueryResults(data, container):
+  Renders a standard HTML table from columns + rows arrays.
+  Shows row count and execution time.
+
+--------------------------------------------------------------------------------
+6.7 Sheet Tracking Modal (Lines 435-458)
+--------------------------------------------------------------------------------
+
+openSheetTracking():
+  Opens #sheet-modal
+
+runSheetTracking():
+  1. Gets scrapped-sheet and scrapped-station input values
+  2. POSTs to /sheet-tracking with { schema_name, scrapped_sheet_number, scrapped_station }
+  3. Renders results using displayQueryResults()
+
+
+================================================================================
+7. FRONTEND: CSS STYLING (styles.css)
+================================================================================
+
+File: webapp/frontend/css/styles.css (1408 lines)
+
+The stylesheet is comprehensive and handles all visual aspects.
+Key sections (approximate line ranges):
+
+  Lines 1-50:     CSS variables, body reset, container
+  Lines 51-100:   Header styling
+  Lines 101-200:  Project cards grid (responsive grid layout)
+  Lines 201-300:  Work order cards grid
+  Lines 301-500:  Schema view, table boxes, flow diagrams (mostly hidden)
+  Lines 501-700:  Summary bar and summary cards
+  Lines 701-1000: Unified data table (.unified-data-table)
+  Lines 1001-1200: Badges (P2P, Miter), parts/products cells
+  Lines 1201-1408: Modals, loading spinner, error message, responsiveness
+
+KEY CSS CLASSES:
+
+  .summary-bar         - Flex container for the 5 summary cards
+  .summary-card        - Individual card with icon + body
+  .summary-card.nesting/.panel/.edge/.operations/.totals - Color variants
+
+  .unified-data-table  - The main production plan table
+  .station-cell        - Processing station column (vertical text, colored bg)
+  .material-cell       - Material column (sticky left)
+  .parts-cell          - Part info with dimensions
+  .products-cell       - Product info with quantity
+  .badge.p2p           - Orange P2P indicator
+  .badge.miter         - Red Miter indicator
+
+  .project-card        - Clickable project card
+  .workorder-card      - Clickable work order card
+  .breadcrumb          - Navigation breadcrumb with back button
+
+RESPONSIVE DESIGN:
+  The CSS includes some responsive rules but is primarily designed for
+  desktop/wide-screen use. The unified data table has fixed column widths
+  defined in the HTML colgroup.
+
+
+================================================================================
+8. HOW TO RUN THE APPLICATION
+================================================================================
+
+Step 8.1: Open a terminal/command prompt
+
+Step 8.2: Navigate to the backend directory:
+    cd C:\Users\GTandlekar\DataPSF\MVFull\MVFull\webapp\backend
+
+Step 8.3: Activate the virtual environment:
+    venv\Scripts\activate
+
+Step 8.4: Start the server:
+    python main.py
+
+    You should see:
+      INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+      INFO:     Started reloader process [12345]
+
+Step 8.5: Open a browser and navigate to:
+    http://localhost:8000/app
+
+    This loads the frontend. You should see the project selection grid.
+
+Step 8.6: Click a project -> click a work order -> see the production plan.
+
+ALTERNATIVE: Run with uvicorn directly:
+    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+ACCESS FROM OTHER MACHINES:
+    Since host is 0.0.0.0, other machines on the same network can access
+    the app using the server's IP address:
+    http://192.168.x.x:8000/app
+
+API TESTING:
+    You can test API endpoints directly:
+    http://localhost:8000/              -> API info
+    http://localhost:8000/projects      -> All projects (JSON)
+    http://localhost:8000/projects/1987/workorders -> Work orders (JSON)
+    http://localhost:8000/docs          -> FastAPI auto-generated Swagger UI
+
+
+================================================================================
+9. DATA FLOW: END-TO-END WALKTHROUGH
+================================================================================
+
+This section traces the complete flow from user click to rendered data.
+
+--- SCENARIO: User views production plan for work order P1987_D018 ---
+
+STEP 1: Page Load
+  Browser: GET http://localhost:8000/app
+  Backend: Returns index.html via FileResponse
+  Browser: Loads css/styles.css and js/app.js
+  JS: DOMContentLoaded fires -> loadProjects()
+
+STEP 2: Load Projects
+  JS: apiCall('/projects')
+  Backend: Queries INFORMATION_SCHEMA.TABLES, extracts project numbers
+  Backend: Returns [{ project_number: "1987", project_name: "...", work_order_count: 5 }]
+  JS: displayProjects() renders project cards into #project-grid
+  JS: showProjectView() makes #project-view visible
+
+STEP 3: User Clicks Project Card "1987"
+  JS: loadWorkOrders("1987", "Hollywood Casino Aurora")
+  JS: apiCall('/projects/1987/workorders')
+  Backend: Queries for schemas matching P1987_%
+  Backend: For each schema, counts tables/products/parts
+  Backend: Returns [{ schema_name: "P1987_D018", drawing_number: "D018", ... }]
+  JS: displayWorkOrders() renders work order cards into #workorder-grid
+  JS: showWorkOrderView() updates breadcrumb, makes #workorder-view visible
+
+STEP 4: User Clicks Work Order Card "D018"
+  JS: loadSchema("P1987_D018")
+  JS: apiCall('/schema/P1987_D018/workorder-details')
+
+  Backend Processing:
+    a. Checks which tables exist (DrillsHorizontal? DrillsVertical?)
+    b. Executes Summary Query (400+ lines of SQL):
+       - Aggregates nesting/saw/edgebanding/P2P/miter/solid metrics
+       - Groups by processing station and batch
+    c. Builds summary dict by iterating result rows
+    d. Executes Detail Query (70+ lines of SQL with CTE):
+       - Joins PlacedSheets -> OptimizationResults -> Parts -> Products
+       - Includes Routes, Edgebanding, optional Drills tables
+       - Returns flat rows ordered by station/sheet/product/part
+    e. Builds hierarchical structure:
+       Station -> Material -> Sheet -> Parts
+    f. Returns combined JSON response
+
+  JS: displayWorkOrderProcessing(data)
+    a. Builds summary cards HTML (5 cards)
+    b. Builds detail table HTML with rowspan merging:
+       - Iterates stations -> materials -> sheets -> parts
+       - Tracks first-row flags for rowspan insertion
+       - Aggregates sheet-level metrics from part data
+       - Adds P2P/Miter badges to part cells
+    c. Sets container.innerHTML = html
+
+  JS: showSchemaView() makes #schema-view visible
+
+Total API calls for full navigation: 3 (projects, workorders, workorder-details)
+
+
+================================================================================
+10. KNOWN LIMITATIONS & FUTURE WORK
+================================================================================
+
+CURRENT LIMITATIONS:
+
+  1. NO CONNECTION POOLING
+     Each API call opens a new pyodbc connection and closes it.
+     Under load, this creates connection churn.
+     FIX: Add connection pooling (e.g., use databases library or maintain a pool).
+
+  2. HARDCODED PROCESSING STATION IDs
+     The station IDs ('21BMOJSH9M90', '1966O1PHUNP10', '1966O9J0UOZ10') are
+     hardcoded in the SQL queries. If Microvellum changes these IDs or new
+     stations are added, the queries break silently.
+     FIX: Store station mappings in a config table or .env.
+
+  3. SQL INJECTION RISKS
+     - /query endpoint has basic keyword blocking but could be bypassed
+     - /sheet-tracking interpolates integers directly into SQL
+     - Schema names in f-strings are not parameterized (but come from
+       INFORMATION_SCHEMA, not user input directly)
+     FIX: Use parameterized queries consistently. For /query, consider
+     using a SQL parser or stored procedures.
+
+  4. NO AUTHENTICATION
+     The API has no auth. Anyone on the network can access it.
+     FIX: Add FastAPI security (OAuth2, API keys, or basic auth).
+
+  5. DRAWING NUMBER REGEX
+     The regex P\d+_(D\d+) assumes drawings start with "D".
+     Some drawings don't follow this pattern.
+     FIX: Use a more flexible pattern or extract from the actual data.
+
+  6. BARE EXCEPT CLAUSES
+     Several places use bare "except:" which swallows all errors silently.
+     FIX: Catch specific exceptions and log them.
+
+  7. LTRIM/RTRIM PERFORMANCE
+     All LinkID joins use LTRIM(RTRIM()) which prevents index usage.
+     For large schemas, queries may be slow.
+     FIX: Clean the data during migration (trim LinkIDs in the migrator).
+
+  8. NO CACHING
+     Every click re-queries the database. Project and work order lists
+     could be cached since they rarely change.
+     FIX: Add in-memory caching with TTL (e.g., cachetools or Redis).
+
+  9. FRONTEND IS VANILLA JS
+     No component system, no state management, no build tools.
+     All HTML is built via string concatenation (innerHTML).
+     FIX: For a larger app, consider React/Vue/Svelte.
+
+HIDDEN FEATURES (implemented in HTML but hidden via display:none):
+  - Core Tables flow diagram
+  - Sheet Optimization flow
+  - Part Processing flow (Routes, Edgebanding, Drills, Hardware)
+  - Processing Stations section
+  - Action buttons (Query Builder, Sheet Tracking, Relationships, Export)
+  - All Tables grid
+
+  These could be re-enabled by removing style="display: none;" and
+  implementing the corresponding JS functions (currently stubbed with alerts).
+
+FUTURE ENHANCEMENTS (from code stubs):
+  - viewRelationships() -> "Coming soon!" alert
+  - exportSchema() -> "Coming soon!" alert
+  - showTableDetails(tableName) -> "Coming soon!" alert
+
+
+================================================================================
+11. TROUBLESHOOTING GUIDE
+================================================================================
+
+PROBLEM: "ODBC Driver 17 for SQL Server" not found
+  CAUSE: Machine has Driver 18, not 17
+  FIX: Change DB_DRIVER in .env to "ODBC Driver 18 for SQL Server"
+  VERIFY: Run odbcad32.exe -> Drivers tab
+
+PROBLEM: Connection refused / server not found
+  CAUSE: SQL Server service not running or wrong instance name
+  FIX: Open SQL Server Configuration Manager, ensure SQL Server (SQLEXPRESS)
+       service is running. Verify instance name matches DB_SERVER in .env.
+
+PROBLEM: "Certificate not trusted" error
+  CAUSE: ODBC Driver 18 requires SSL by default
+  FIX: The connection string includes TrustServerCertificate=yes (already set).
+       If still failing, verify the .env is being loaded (check load_dotenv() path).
+
+PROBLEM: Empty project list
+  CAUSE: No migrated schemas in the database
+  FIX: Run the SDF migrator to import data. Schemas must match P{number}_{drawing}
+       pattern (e.g., P1987_D018).
+
+PROBLEM: Work order detail shows "No processing data available"
+  CAUSE: The schema may not have OptimizationResults/PlacedSheets tables,
+         or the tables are empty, or LinkID joins fail due to whitespace.
+  FIX: Check the data manually:
+    SELECT COUNT(*) FROM [P1987_D018].OptimizationResults
+    SELECT COUNT(*) FROM [P1987_D018].PlacedSheets
+    -- Verify LinkID join works:
+    SELECT TOP 5 LTRIM(RTRIM(opt.LinkIDSheet)), LTRIM(RTRIM(ps.LinkID))
+    FROM [P1987_D018].OptimizationResults opt
+    JOIN [P1987_D018].PlacedSheets ps
+      ON LTRIM(RTRIM(opt.LinkIDSheet)) = LTRIM(RTRIM(ps.LinkID))
+
+PROBLEM: CORS errors in browser console
+  CAUSE: Frontend loaded from a different origin than the API
+  FIX: The backend already allows all origins. If you changed CORS config,
+       ensure allow_origins includes the frontend URL.
+
+PROBLEM: Frontend shows "Loading projects..." forever
+  CAUSE: Backend not running or wrong port
+  FIX: Ensure python main.py is running and listening on port 8000.
+       Check browser DevTools -> Network tab for failed requests.
+       Verify API_BASE in app.js matches the server address.
+
+
+================================================================================
+END OF IMPLEMENTATION PLAN
+================================================================================
