@@ -132,7 +132,92 @@ async function loadSchema(schemaName) {
 }
 
 // ================================================================
-// DISPLAY PRODUCTION PLAN: Summary Cards + Detail Table
+// AGGREGATE FUNCTIONS
+// ================================================================
+
+function computeSheetAggregates(sheet) {
+    const parts = sheet.parts || [];
+    return {
+        partCount: parts.length,
+        totalToolpath: parts.reduce((s, p) => s + (p.toolpath_m || 0), 0),
+        totalHDrills: parts.reduce((s, p) => s + (p.h_drills || 0), 0),
+        totalVDrills: parts.reduce((s, p) => s + (p.v_drills || 0), 0),
+        totalEdgeband: parts.reduce((s, p) => s + (p.edgeband_m || 0), 0),
+        totalMiters: parts.filter(p => p.is_miter).length,
+        totalP2P: parts.filter(p => p.is_p2p).length,
+        totalArea: parts.reduce((s, p) => s + (p.area_sqm || 0), 0),
+    };
+}
+
+function computeMaterialAggregates(material) {
+    let totalSheets = 0, totalParts = 0, totalToolpath = 0;
+    let totalHDrills = 0, totalVDrills = 0, totalEdgeband = 0;
+    let totalMiters = 0, totalP2P = 0, totalArea = 0;
+
+    (material.sheets || []).forEach(sheet => {
+        totalSheets++;
+        (sheet.parts || []).forEach(part => {
+            totalParts++;
+            totalToolpath += part.toolpath_m || 0;
+            totalHDrills += part.h_drills || 0;
+            totalVDrills += part.v_drills || 0;
+            totalEdgeband += part.edgeband_m || 0;
+            totalArea += part.area_sqm || 0;
+            if (part.is_miter) totalMiters++;
+            if (part.is_p2p) totalP2P++;
+        });
+    });
+
+    return { totalSheets, totalParts, totalToolpath, totalHDrills, totalVDrills, totalEdgeband, totalMiters, totalP2P, totalArea };
+}
+
+function computeStationAggregates(station) {
+    let totalMaterials = 0, totalSheets = 0, totalParts = 0, totalToolpath = 0;
+    let totalHDrills = 0, totalVDrills = 0, totalEdgeband = 0;
+    let totalMiters = 0, totalP2P = 0, totalArea = 0;
+
+    (station.materials || []).forEach(mat => {
+        totalMaterials++;
+        (mat.sheets || []).forEach(sheet => {
+            totalSheets++;
+            (sheet.parts || []).forEach(part => {
+                totalParts++;
+                totalToolpath += part.toolpath_m || 0;
+                totalHDrills += part.h_drills || 0;
+                totalVDrills += part.v_drills || 0;
+                totalEdgeband += part.edgeband_m || 0;
+                totalArea += part.area_sqm || 0;
+                if (part.is_miter) totalMiters++;
+                if (part.is_p2p) totalP2P++;
+            });
+        });
+    });
+
+    return { totalMaterials, totalSheets, totalParts, totalToolpath, totalHDrills, totalVDrills, totalEdgeband, totalMiters, totalP2P, totalArea };
+}
+
+// ================================================================
+// TOGGLE ACCORDION (Universal)
+// ================================================================
+
+function toggleAccordion(id) {
+    const body = document.getElementById(id + '-body');
+    const icon = document.getElementById(id + '-icon');
+    const header = icon.closest('.accordion-header');
+
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        icon.textContent = '▼';
+        header.classList.add('expanded');
+    } else {
+        body.style.display = 'none';
+        icon.textContent = '▶';
+        header.classList.remove('expanded');
+    }
+}
+
+// ================================================================
+// DISPLAY PRODUCTION PLAN: 3-Level Accordion
 // ================================================================
 function displayWorkOrderProcessing(data) {
     const container = document.getElementById('processing-tree');
@@ -205,133 +290,118 @@ function displayWorkOrderProcessing(data) {
         </div>
     `;
 
-    // ---- DETAIL TABLE ----
-    html += `
-        <table class="unified-data-table">
-            <colgroup>
-                <col style="width: 120px;">
-                <col style="width: 250px;">
-                <col style="width: 55px;">
-                <col style="width: 120px;">
-                <col style="width: 90px;">
-                <col style="width: 65px;">
-                <col style="width: 65px;">
-                <col style="width: 80px;">
-                <col style="width: 55px;">
-                <col style="width: 200px;">
-                <col style="width: 200px;">
-            </colgroup>
-            <thead>
-                <tr>
-                    <th rowspan="2">Processing Station</th>
-                    <th rowspan="2">Material</th>
-                    <th colspan="7" style="text-align:center;">Sheet Data</th>
-                    <th colspan="2" style="text-align:center;">Parts / Products</th>
-                </tr>
-                <tr>
-                    <th>Sheet#</th>
-                    <th>Size (mm)</th>
-                    <th>Tool Path (m)</th>
-                    <th>H.Drill</th>
-                    <th>V.Drill</th>
-                    <th>Edge (m)</th>
-                    <th>Miter</th>
-                    <th>Parts</th>
-                    <th>Products</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+    // ---- LEVEL 1: STATION ACCORDIONS ----
+    data.processing_stations.forEach((station, si) => {
+        const sa = computeStationAggregates(station);
+        const stationId = `s${si}`;
 
-    // Build rows from the hierarchical data
-    data.processing_stations.forEach(station => {
-        let stationFirstRow = true;
-        let stationRowCount = 0;
-        station.materials.forEach(mat => {
-            mat.sheets.forEach(sheet => {
-                stationRowCount += Math.max(sheet.parts.length, 1);
-            });
-        });
+        html += `
+        <div class="accordion level-1">
+            <div class="accordion-header level-1-header" onclick="toggleAccordion('${stationId}')">
+                <span class="expand-icon" id="${stationId}-icon">▶</span>
+                <span class="accordion-title level-1-title">${station.station_name}</span>
+                <div class="accordion-metrics">
+                    <span><strong>${sa.totalMaterials}</strong> materials</span>
+                    <span><strong>${sa.totalSheets}</strong> sheets</span>
+                    <span><strong>${sa.totalParts}</strong> parts</span>
+                    <span><strong>${sa.totalToolpath.toFixed(1)}</strong>m TP</span>
+                    <span><strong>${sa.totalEdgeband.toFixed(1)}</strong>m EB</span>
+                    <span><strong>${sa.totalMiters}</strong> mit</span>
+                </div>
+            </div>
+            <div id="${stationId}-body" class="accordion-body" style="display:none;">
+        `;
 
-        station.materials.forEach(material => {
-            let materialFirstRow = true;
-            let materialRowCount = 0;
-            material.sheets.forEach(sheet => {
-                materialRowCount += Math.max(sheet.parts.length, 1);
-            });
+        // ---- LEVEL 2: MATERIAL ACCORDIONS ----
+        (station.materials || []).forEach((material, mi) => {
+            const ma = computeMaterialAggregates(material);
+            const materialId = `s${si}-m${mi}`;
 
-            material.sheets.forEach(sheet => {
-                const parts = sheet.parts || [];
-                const sheetRowCount = Math.max(parts.length, 1);
-                let sheetFirstRow = true;
+            html += `
+            <div class="accordion level-2">
+                <div class="accordion-header level-2-header" onclick="toggleAccordion('${materialId}')">
+                    <span class="expand-icon" id="${materialId}-icon">▶</span>
+                    <span class="accordion-title level-2-title">${material.material_name}</span>
+                    <div class="accordion-metrics">
+                        <span><strong>${ma.totalSheets}</strong> sheets</span>
+                        <span><strong>${ma.totalParts}</strong> parts</span>
+                        <span><strong>${ma.totalToolpath.toFixed(1)}</strong>m TP</span>
+                        <span><strong>${ma.totalEdgeband.toFixed(1)}</strong>m EB</span>
+                        <span><strong>${ma.totalMiters}</strong> mit</span>
+                    </div>
+                </div>
+                <div id="${materialId}-body" class="accordion-body" style="display:none;">
+            `;
 
-                // Aggregate sheet-level metrics
-                const sheetToolPath = parts.reduce((sum, p) => sum + p.toolpath_m, 0);
-                const sheetEdgeBand = parts.reduce((sum, p) => sum + p.edgeband_m, 0);
-                const sheetHDrills = parts.reduce((sum, p) => sum + p.h_drills, 0);
-                const sheetVDrills = parts.reduce((sum, p) => sum + p.v_drills, 0);
-                const sheetMiter = parts.filter(p => p.is_miter).length;
+            // ---- LEVEL 3: SHEET ACCORDIONS ----
+            (material.sheets || []).forEach((sheet, shi) => {
+                const sha = computeSheetAggregates(sheet);
+                const sheetId = `s${si}-m${mi}-sh${shi}`;
 
-                if (parts.length === 0) {
-                    html += `<tr>`;
-                    if (stationFirstRow) {
-                        html += `<td rowspan="${stationRowCount}" class="station-cell">${station.station_name}</td>`;
-                        stationFirstRow = false;
-                    }
-                    if (materialFirstRow) {
-                        html += `<td rowspan="${materialRowCount}" class="material-cell">${material.material_name}</td>`;
-                        materialFirstRow = false;
-                    }
+                html += `
+                <div class="accordion level-3">
+                    <div class="accordion-header level-3-header" onclick="toggleAccordion('${sheetId}')">
+                        <span class="expand-icon" id="${sheetId}-icon">▶</span>
+                        <span class="accordion-title level-3-title">Sheet #${sheet.sheet_number}</span>
+                        <span class="sheet-size">${sheet.length_mm} x ${sheet.width_mm}</span>
+                        <div class="accordion-metrics">
+                            <span><strong>${sha.partCount}</strong> parts</span>
+                            <span><strong>${sha.totalToolpath.toFixed(2)}</strong>m TP</span>
+                            <span><strong>${sha.totalHDrills}</strong> HD</span>
+                            <span><strong>${sha.totalVDrills}</strong> VD</span>
+                            <span><strong>${sha.totalEdgeband.toFixed(2)}</strong>m EB</span>
+                            <span><strong>${sha.totalMiters}</strong> mit</span>
+                            <span><strong>${sha.totalP2P}</strong> P2P</span>
+                        </div>
+                    </div>
+                    <div id="${sheetId}-body" class="accordion-body" style="display:none;">
+                        <table class="parts-table">
+                            <thead>
+                                <tr>
+                                    <th>Part Name</th>
+                                    <th>Size (mm)</th>
+                                    <th>Area (m²)</th>
+                                    <th>ToolPath (m)</th>
+                                    <th>H.Drill</th>
+                                    <th>V.Drill</th>
+                                    <th>Edge (m)</th>
+                                    <th>Product</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                // ---- PARTS ROWS ----
+                (sheet.parts || []).forEach(part => {
+                    const p2pBadge = part.is_p2p ? ' <span class="badge p2p">P2P</span>' : '';
+                    const miterBadge = part.is_miter ? ' <span class="badge miter">Miter</span>' : '';
+
                     html += `
-                        <td>${sheet.sheet_number}</td>
-                        <td>${sheet.length_mm} x ${sheet.width_mm}</td>
-                        <td>-</td><td>-</td><td>-</td><td>-</td><td>-</td>
-                        <td class="parts-cell">-</td>
-                        <td class="products-cell">-</td>
-                    </tr>`;
-                } else {
-                    parts.forEach((part, partIdx) => {
-                        html += `<tr>`;
+                                <tr>
+                                    <td class="part-name-cell">${part.name}${p2pBadge}${miterBadge}</td>
+                                    <td>${part.length_mm} x ${part.width_mm}</td>
+                                    <td>${(part.area_sqm || 0).toFixed(4)}</td>
+                                    <td>${(part.toolpath_m || 0).toFixed(2)}</td>
+                                    <td>${part.h_drills || '-'}</td>
+                                    <td>${part.v_drills || '-'}</td>
+                                    <td>${(part.edgeband_m || 0).toFixed(2)}</td>
+                                    <td>${part.product_name} <span class="product-qty">(x${part.product_qty})</span></td>
+                                </tr>
+                    `;
+                });
 
-                        if (stationFirstRow) {
-                            html += `<td rowspan="${stationRowCount}" class="station-cell">${station.station_name}</td>`;
-                            stationFirstRow = false;
-                        }
-
-                        if (materialFirstRow) {
-                            html += `<td rowspan="${materialRowCount}" class="material-cell">${material.material_name}</td>`;
-                            materialFirstRow = false;
-                        }
-
-                        if (sheetFirstRow) {
-                            html += `
-                                <td rowspan="${sheetRowCount}">${sheet.sheet_number}</td>
-                                <td rowspan="${sheetRowCount}">${sheet.length_mm} x ${sheet.width_mm}</td>
-                                <td rowspan="${sheetRowCount}">${sheetToolPath.toFixed(2)}</td>
-                                <td rowspan="${sheetRowCount}">${sheetHDrills || '-'}</td>
-                                <td rowspan="${sheetRowCount}">${sheetVDrills || '-'}</td>
-                                <td rowspan="${sheetRowCount}">${sheetEdgeBand.toFixed(2)}</td>
-                                <td rowspan="${sheetRowCount}">${sheetMiter || '-'}</td>
-                            `;
-                            sheetFirstRow = false;
-                        }
-
-                        const p2pBadge = part.is_p2p ? ' <span class="badge p2p">P2P</span>' : '';
-                        const miterBadge = part.is_miter ? ' <span class="badge miter">Miter</span>' : '';
-                        html += `<td class="parts-cell">${part.name}${p2pBadge}${miterBadge}<br><span class="part-dims">${part.length_mm}x${part.width_mm} | ${part.area_sqm.toFixed(4)} m&sup2;</span></td>`;
-                        html += `<td class="products-cell">${part.product_name} <span class="product-qty">(x${part.product_qty})</span></td>`;
-
-                        html += `</tr>`;
-                    });
-                }
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`; // close level-3
             });
-        });
-    });
 
-    html += `
-            </tbody>
-        </table>
-    `;
+            html += `</div></div>`; // close level-2
+        });
+
+        html += `</div></div>`; // close level-1
+    });
 
     container.innerHTML = html;
 }
