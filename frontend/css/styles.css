@@ -1,0 +1,669 @@
+/* 
+ * Microvellum Database Explorer - Styles
+ * A comprehensive stylesheet for the manufacturing work order management system.
+ */
+
+/* ==================== CSS Variables & Reset ==================== */
+
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --accent-color: #e74c3c;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+    --bg-color: #f5f6fa;
+    --card-bg: #ffffff;
+    --text-color: #2c3e50;
+    --text-muted: #7f8c8d;
+    --border-color: #dcdde1;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --radius: 8px;
+    
+    /* Station colors */
+    --nesting-color: #3498db;
+    --panel-color: #9b59b6;
+    --edge-color: #e67e22;
+    --ops-color: #1abc9c;
+    --totals-color: #34495e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* ==================== Layout ==================== */
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 30px;
+    border-radius: var(--radius);
+    margin-bottom: 30px;
+    box-shadow: var(--shadow);
+}
+
+header h1 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+header .subtitle {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+main {
+    min-height: 500px;
+}
+
+/* ==================== Loading Spinner ==================== */
+
+#loading {
+    text-align: center;
+    padding: 50px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--secondary-color);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==================== Project Cards ==================== */
+
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.project-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 25px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+}
+
+.project-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+    border-color: var(--secondary-color);
+}
+
+.project-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--secondary-color);
+    margin-bottom: 10px;
+}
+
+.project-name {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.project-stats {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ==================== Work Order Cards ==================== */
+
+.workorder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+}
+
+.workorder-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+}
+
+.workorder-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
+    border-color: var(--secondary-color);
+}
+
+.wo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.wo-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+.wo-schema {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: var(--bg-color);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.wo-name {
+    font-size: 1rem;
+    margin-bottom: 15px;
+    color: var(--text-color);
+}
+
+.wo-stats {
+    display: flex;
+    gap: 15px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* ==================== Breadcrumb ==================== */
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.breadcrumb button {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.breadcrumb button:hover {
+    background: #2980b9;
+}
+
+.breadcrumb span {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+/* ==================== Summary Bar ==================== */
+
+.summary-bar {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.summary-card {
+    flex: 1;
+    min-width: 180px;
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    text-align: center;
+    border-top: 4px solid var(--border-color);
+}
+
+.summary-card.nesting { border-top-color: var(--nesting-color); }
+.summary-card.panel { border-top-color: var(--panel-color); }
+.summary-card.edge { border-top-color: var(--edge-color); }
+.summary-card.operations { border-top-color: var(--ops-color); }
+.summary-card.totals { border-top-color: var(--totals-color); }
+
+.summary-icon {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.summary-card.nesting .summary-icon { color: var(--nesting-color); }
+.summary-card.panel .summary-icon { color: var(--panel-color); }
+.summary-card.edge .summary-icon { color: var(--edge-color); }
+.summary-card.operations .summary-icon { color: var(--ops-color); }
+.summary-card.totals .summary-icon { color: var(--totals-color); }
+
+.summary-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-color);
+}
+
+.summary-metrics {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.summary-metrics div {
+    padding: 3px 0;
+}
+
+.summary-hours {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--success-color);
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.summary-batch {
+    font-size: 0.9rem;
+    color: var(--secondary-color);
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* ==================== Data Table ==================== */
+
+.table-box {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.unified-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.unified-data-table th,
+.unified-data-table td {
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.unified-data-table th {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.unified-data-table tbody tr:hover {
+    background: var(--bg-color);
+}
+
+/* Column widths */
+.col-station { width: 12%; }
+.col-material { width: 12%; }
+.col-sheet { width: 5%; }
+.col-size { width: 8%; }
+.col-toolpath { width: 7%; }
+.col-hdrill { width: 5%; }
+.col-vdrill { width: 5%; }
+.col-edge { width: 6%; }
+.col-miter { width: 5%; }
+.col-parts { width: 20%; }
+.col-products { width: 15%; }
+
+/* Table cells */
+.station-cell {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+    vertical-align: top;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    text-align: center;
+    padding: 15px 5px;
+}
+
+.material-cell {
+    background: #ecf0f1;
+    font-weight: 500;
+    vertical-align: top;
+}
+
+.sheet-cell {
+    text-align: center;
+    font-weight: 600;
+}
+
+.size-cell {
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.metric-cell {
+    text-align: right;
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+.parts-cell {
+    vertical-align: top;
+}
+
+.parts-cell .part-dims {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+.products-cell {
+    vertical-align: top;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-left: 5px;
+}
+
+.badge.p2p {
+    background: #e67e22;
+    color: white;
+}
+
+.badge.miter {
+    background: var(--accent-color);
+    color: white;
+}
+
+/* Row highlighting */
+.p2p-row {
+    background: #fef5e7;
+}
+
+.miter-row {
+    background: #fdedec;
+}
+
+/* ==================== Modals ==================== */
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background: var(--card-bg);
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: var(--radius);
+    width: 80%;
+    max-width: 900px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.modal-content h2 {
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.close {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.close:hover {
+    color: var(--accent-color);
+}
+
+/* Form elements */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.form-group input,
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-family: monospace;
+}
+
+.form-group input:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+}
+
+textarea {
+    resize: vertical;
+}
+
+/* Buttons */
+.btn-primary {
+    background: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #2980b9;
+}
+
+/* Results table */
+.results-table-wrapper {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.results-table th,
+.results-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+}
+
+.results-table th {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+}
+
+.results-table tbody tr:nth-child(even) {
+    background: var(--bg-color);
+}
+
+.results-table tbody tr:hover {
+    background: #e8f4f8;
+}
+
+/* ==================== Error Message ==================== */
+
+.error-message {
+    background: var(--accent-color);
+    color: white;
+    padding: 15px 20px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+/* ==================== No Data ==================== */
+
+.no-data {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+/* ==================== Responsive Design ==================== */
+
+@media (max-width: 1200px) {
+    .summary-bar {
+        flex-wrap: wrap;
+    }
+    
+    .summary-card {
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .project-grid,
+    .workorder-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-bar {
+        flex-direction: column;
+    }
+    
+    .summary-card {
+        min-width: 100%;
+    }
+    
+    .breadcrumb {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    /* Table responsiveness */
+    .table-box {
+        overflow-x: auto;
+    }
+    
+    .unified-data-table {
+        min-width: 800px;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 20px;
+    }
+    
+    header h1 {
+        font-size: 1.3rem;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 20px;
+    }
+}
+
+/* ==================== Hidden Elements ==================== */
+
+.hidden {
+    display: none !important;
+}
+
+/* ==================== Print Styles ==================== */
+
+@media print {
+    .breadcrumb button,
+    .modal,
+    #loading {
+        display: none !important;
+    }
+    
+    body {
+        background: white;
+    }
+    
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+    
+    .summary-bar,
+    .table-box {
+        box-shadow: none;
+    }
+}
