@@ -1405,3 +1405,9 @@ header p {
     font-size: 0.75rem;
     color: #64748b;
 }
+
+.hours-formula {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-weight: 400;
+}

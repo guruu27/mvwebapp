@@ -155,19 +155,20 @@ function displayWorkOrderProcessing(data) {
                     <div class="summary-metrics">
                         <span><strong>${s.nest_sheets || 0}</strong> sheets</span>
                         <span><strong>${s.nest_parts || 0}</strong> parts</span>
+                        <span>TP: <strong>${((s.total_toolpath_mm || 0) / 1000).toFixed(1)}</strong>m</span>
                     </div>
-                    ${s.nesting_hours ? `<div class="summary-hours">${Number(s.nesting_hours).toFixed(1)} hrs</div>` : ''}
+                    ${s.cnc_hours ? `<div class="summary-hours">CNC: ${Number(s.cnc_hours).toFixed(2)} hrs <span class="hours-formula">(TP / 8m/min)</span></div>` : ''}
                 </div>
             </div>
             <div class="summary-card panel">
-                <div class="summary-icon">SAW</div>
+                <div class="summary-icon">ELIX</div>
                 <div class="summary-body">
-                    <div class="summary-title">Panel Saw</div>
+                    <div class="summary-title">Elix (H.Drills)</div>
                     <div class="summary-metrics">
+                        <span><strong>${s.total_h_drills || 0}</strong> drills</span>
                         <span><strong>${s.panel_sheets || 0}</strong> sheets</span>
-                        <span><strong>${s.panel_parts || 0}</strong> parts</span>
                     </div>
-                    ${s.panel_hours ? `<div class="summary-hours">${Number(s.panel_hours).toFixed(1)} hrs</div>` : ''}
+                    ${s.elix_hours ? `<div class="summary-hours">Elix: ${Number(s.elix_hours).toFixed(2)} hrs <span class="hours-formula">(${s.total_h_drills || 0} x 8s)</span></div>` : ''}
                 </div>
             </div>
             <div class="summary-card edge">
@@ -175,9 +176,10 @@ function displayWorkOrderProcessing(data) {
                 <div class="summary-body">
                     <div class="summary-title">Edgebanding</div>
                     <div class="summary-metrics">
+                        <span><strong>${((s.total_edgeband_mm || 0) / 1000).toFixed(1)}</strong>m total</span>
                         <span><strong>${s.edge_linft || 0}</strong> lin ft</span>
                     </div>
-                    ${s.edging_hours ? `<div class="summary-hours">${Number(s.edging_hours).toFixed(1)} hrs</div>` : ''}
+                    ${s.edging_hours ? `<div class="summary-hours">Edging: ${Number(s.edging_hours).toFixed(2)} hrs <span class="hours-formula">(12m/min)</span></div>` : ''}
                 </div>
             </div>
             <div class="summary-card operations">
@@ -186,9 +188,10 @@ function displayWorkOrderProcessing(data) {
                     <div class="summary-title">Operations</div>
                     <div class="summary-metrics">
                         <span>P2P: <strong>${s.p2p || 0}</strong></span>
-                        <span>Miter: <strong>${s.miter || 0}</strong></span>
+                        <span>Miter: <strong>${s.total_miters || 0}</strong></span>
                         <span>Solid: <strong>${s.solid || '-'}</strong></span>
                     </div>
+                    ${s.miter_hours ? `<div class="summary-hours">Miter: ${Number(s.miter_hours).toFixed(2)} hrs <span class="hours-formula">(${s.total_miters || 0} x 8min)</span></div>` : ''}
                 </div>
             </div>
             <div class="summary-card totals">
@@ -199,6 +202,7 @@ function displayWorkOrderProcessing(data) {
                         <span><strong>${s.products || 0}</strong> products</span>
                         <span><strong>${s.total_parts || 0}</strong> parts</span>
                     </div>
+                    <div class="summary-hours">Total: ${(Number(s.cnc_hours || 0) + Number(s.elix_hours || 0) + Number(s.edging_hours || 0) + Number(s.miter_hours || 0)).toFixed(2)} hrs</div>
                     <div class="summary-batch">${s.batch_name || ''}</div>
                 </div>
             </div>

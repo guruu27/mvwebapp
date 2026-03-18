@@ -574,25 +574,22 @@ def get_workorder_details(schema_name: str):
             summary_rows.append(row_dict)
 
         # Aggregate summary into a single object for the frontend
+        # Hours will be recomputed from detail data using actual formulas
         summary = {
             'nest_sheets': 0, 'nest_parts': 0,
             'panel_sheets': 0, 'panel_parts': 0,
             'edge_linft': 0, 'p2p': 0, 'miter': 0, 'solid': 0,
             'products': 0, 'total_parts': 0,
-            'nesting_hours': 0, 'panel_hours': 0, 'p2p_hours': 0,
-            'miter_hours': 0, 'edging_hours': 0, 'solid_hours': 0,
+            'elix_hours': 0, 'edging_hours': 0, 'cnc_hours': 0, 'miter_hours': 0,
             'batch_name': '',
         }
         for r in summary_rows:
             if r.get('NestSht'):
                 summary['nest_sheets'] = int(r['NestSht'])
                 summary['nest_parts'] = int(r['NestPrts'] or 0)
-                summary['nesting_hours'] = r.get('NestingHours') or 0
             if r.get('PnlSht'):
                 summary['panel_sheets'] = int(r['PnlSht'])
                 summary['panel_parts'] = int(r['PnlPrts'] or 0)
-                summary['panel_hours'] = r.get('PanelHours') or 0
-                summary['p2p_hours'] = r.get('P2pHours') or 0
             if r.get('Edge') is not None:
                 summary['edge_linft'] = round(float(r['Edge']), 0)
             if r.get('P2P') is not None:
@@ -605,12 +602,6 @@ def get_workorder_details(schema_name: str):
                 summary['products'] = int(r['Product'])
             if r.get('TtlPrts') is not None:
                 summary['total_parts'] = int(r['TtlPrts'])
-            if r.get('MiterHours') is not None:
-                summary['miter_hours'] = r['MiterHours']
-            if r.get('EdgingHours') is not None:
-                summary['edging_hours'] = r['EdgingHours']
-            if r.get('SolidHours') is not None:
-                summary['solid_hours'] = r['SolidHours']
             if r.get('BatchName'):
                 summary['batch_name'] = r['BatchName']
 
@@ -823,6 +814,44 @@ def get_workorder_details(schema_name: str):
                 'station_name': sdata['station_name'],
                 'materials': materials_list,
             })
+
+        # ================================================================
+        # Compute hours from detail data using actual formulas:
+        #   Elix time     = total H.Drills * 8 sec
+        #   Edging time   = total edge length (mm) / 12000 mm/min
+        #   CNC time      = total toolpath (mm) / 8000 mm/min
+        #   Miter time    = miter count * 8 min
+        # ================================================================
+        total_h_drills = 0
+        total_edgeband_mm = 0
+        total_toolpath_mm = 0
+        total_miters = 0
+
+        for station in stations_list:
+            for material in station['materials']:
+                for sheet in material['sheets']:
+                    for part in sheet['parts']:
+                        total_h_drills += part.get('h_drills', 0)
+                        # edgeband_m and toolpath_m are in meters, convert back to mm
+                        total_edgeband_mm += part.get('edgeband_m', 0) * 1000
+                        total_toolpath_mm += part.get('toolpath_m', 0) * 1000
+                        if part.get('is_miter'):
+                            total_miters += 1
+
+        # Elix: H.Drills * 8 sec → hours
+        summary['elix_hours'] = round(total_h_drills * 8 / 3600, 2)
+        # Edging: total mm / 12000 mm per min → hours
+        summary['edging_hours'] = round(total_edgeband_mm / 12000 / 60, 2)
+        # CNC: total toolpath mm / 8000 mm per min → hours
+        summary['cnc_hours'] = round(total_toolpath_mm / 8000 / 60, 2)
+        # Miter: count * 8 min → hours
+        summary['miter_hours'] = round(total_miters * 8 / 60, 2)
+
+        # Also provide raw totals for frontend display
+        summary['total_h_drills'] = total_h_drills
+        summary['total_edgeband_mm'] = round(total_edgeband_mm, 0)
+        summary['total_toolpath_mm'] = round(total_toolpath_mm, 0)
+        summary['total_miters'] = total_miters
 
         return {
             'schema_name': schema_name,

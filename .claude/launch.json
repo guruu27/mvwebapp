@@ -5,7 +5,7 @@
       "name": "webapp",
       "runtimeExecutable": "C:\\Users\\GTandlekar\\DataPSF\\MVFull\\MVFull\\webapp\\backend\\venv\\Scripts\\python.exe",
       "runtimeArgs": ["C:\\Users\\GTandlekar\\DataPSF\\MVFull\\MVFull\\webapp\\backend\\main.py"],
-      "port": 8000
+      "port": 8001
     }
   ]
 }
