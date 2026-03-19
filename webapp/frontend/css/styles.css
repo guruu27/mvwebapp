@@ -1,33 +1,33 @@
 /* Microvellum Database Web App - Styles */
 
 :root {
-    /* Dark mode colors */
-    --bg-primary: #0f0f1a;
-    --bg-surface: #1a1a2e;
-    --bg-surface-hover: #252540;
-    --bg-level-1: #1a1a2e;
-    --bg-level-2: #151525;
-    --bg-level-3: #111120;
-    --bg-level-4: #0d0d1a;
-    --text-primary: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --accent-green: #22c55e;
-    --accent-yellow: #eab308;
-    --accent-cyan: #06b6d4;
-    --accent-green-dim: rgba(34, 197, 94, 0.15);
-    --accent-yellow-dim: rgba(234, 179, 8, 0.15);
-    --accent-cyan-dim: rgba(6, 182, 212, 0.15);
+    /* Light mode colors */
+    --bg-primary: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-hover: #f1f5f9;
+    --bg-level-1: #f1f5f9;
+    --bg-level-2: #e2e8f0;
+    --bg-level-3: #e2e8f0;
+    --bg-level-4: #cbd5e1;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --accent-green: #16a34a;
+    --accent-yellow: #ca8a04;
+    --accent-cyan: #0891b2;
+    --accent-green-dim: rgba(22, 163, 74, 0.1);
+    --accent-yellow-dim: rgba(202, 138, 4, 0.1);
+    --accent-cyan-dim: rgba(8, 145, 178, 0.1);
     
     /* Legacy variables (kept for compatibility) */
-    --primary-color: #22c55e;
-    --secondary-color: #eab308;
-    --success-color: #4ade80;
-    --warning-color: #facc15;
-    --danger-color: #ef4444;
-    --dark: #0f0f1a;
-    --light: #1a1a2e;
-    --border: #2d2d44;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    --primary-color: #16a34a;
+    --secondary-color: #ca8a04;
+    --success-color: #22c55e;
+    --warning-color: #eab308;
+    --danger-color: #dc2626;
+    --dark: #1e293b;
+    --light: #ffffff;
+    --border: #e2e8f0;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -64,7 +64,6 @@ header h1 {
     font-size: 2.5rem;
     color: var(--accent-green);
     margin-bottom: 10px;
-    text-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
 }
 
 header p {
@@ -79,7 +78,7 @@ header p {
     align-items: center;
     justify-content: center;
     min-height: 300px;
-    background: white;
+    background: var(--bg-surface);
     border-radius: 12px;
     box-shadow: var(--shadow);
 }
@@ -330,7 +329,7 @@ header p {
 }
 
 .table-box {
-    background: white;
+    background: var(--bg-surface);
     border-radius: 10px;
     padding: 20px;
     min-width: 200px;
@@ -364,7 +363,7 @@ header p {
 
 .table-detail {
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--text-secondary);
     margin-top: 5px;
 }
 
@@ -414,7 +413,7 @@ header p {
 }
 
 .table-card:hover {
-    background: white;
+    background: var(--bg-surface-hover);
     border-color: var(--primary-color);
     transform: translateY(-2px);
 }
@@ -480,7 +479,7 @@ header p {
 }
 
 .modal-content {
-    background: white;
+    background: var(--bg-surface);
     border-radius: 12px;
     width: 90%;
     max-width: 1000px;
@@ -843,7 +842,7 @@ header p {
     border: 2px solid var(--dark);
     border-radius: 8px;
     padding: 15px;
-    background: white;
+    background: var(--bg-surface);
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -891,23 +890,23 @@ header p {
 
 .pill-id {
     font-weight: 700;
-    color: #0f172a;
+    color: var(--text-primary);
 }
 
 .pill-name {
-    color: #475569;
+    color: var(--text-secondary);
     margin-left: 4px;
 }
 
 .muted {
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 0.8rem;
 }
 
 .sheets-table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
+    background: var(--bg-surface);
 }
 
 .sheets-table thead {
@@ -943,7 +942,7 @@ header p {
 .no-data {
     padding: 40px;
     text-align: center;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 1.1rem;
 }
 
@@ -1039,7 +1038,7 @@ header p {
 .no-data {
     text-align: center;
     padding: 40px;
-    color: #64748b;
+    color: var(--text-secondary);
     font-size: 1.1rem;
 }
 
@@ -1166,7 +1165,7 @@ header p {
 
 .product-tree-item {
     margin-bottom: 16px;
-    background: #1e293b;
+    background: var(--bg-level-1);
     border-radius: 10px;
     padding: 12px;
 }
@@ -1176,9 +1175,10 @@ header p {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: #0f172a;
+    background: var(--bg-surface);
     border-radius: 8px;
     margin-bottom: 8px;
+    border: 1px solid var(--border);
 }
 
 .product-node .node-icon {
@@ -1186,7 +1186,7 @@ header p {
 }
 
 .product-node .node-name {
-    color: #60a5fa;
+    color: var(--accent-cyan);
     font-weight: 600;
     font-size: 0.85rem;
 }
@@ -1200,14 +1200,14 @@ header p {
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    background: #1e293b;
+    background: var(--bg-level-1);
     border-radius: 6px;
     margin-bottom: 4px;
-    border: 1px solid #334155;
+    border: 1px solid var(--border);
 }
 
 .part-node .tree-line {
-    color: #64748b;
+    color: var(--text-secondary);
     font-family: monospace;
     font-size: 0.8rem;
 }
@@ -1217,12 +1217,12 @@ header p {
 }
 
 .part-node .node-name {
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 0.8rem;
 }
 
 .part-node.more {
-    color: #64748b;
+    color: var(--text-secondary);
     font-style: italic;
     font-size: 0.75rem;
     border: none;
@@ -1323,13 +1323,13 @@ header p {
     border-radius: 10px;
     background: var(--bg-surface);
     border: 2px solid var(--border);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: var(--shadow);
     transition: transform 0.2s;
 }
 
 .summary-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .summary-card.nesting  { border-left: 5px solid var(--accent-green); }
@@ -1365,7 +1365,7 @@ header p {
 .summary-title {
     font-weight: 700;
     font-size: 0.85rem;
-    color: var(--bg-surface);
+    color: var(--text-primary);
     margin-bottom: 4px;
 }
 
@@ -1374,25 +1374,25 @@ header p {
     flex-wrap: wrap;
     gap: 8px;
     font-size: 0.8rem;
-    color: #475569;
+    color: var(--text-secondary);
 }
 
 .summary-metrics strong {
-    color: var(--bg-surface);
+    color: var(--text-primary);
     font-size: 1rem;
 }
 
 .summary-hours {
     margin-top: 4px;
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-secondary);
     font-style: italic;
 }
 
 .summary-batch {
     margin-top: 2px;
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
 }
 
 /* ================================================================
@@ -1424,7 +1424,7 @@ header p {
 
 .part-dims {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-weight: 400;
 }
 
@@ -1435,7 +1435,180 @@ header p {
 
 .hours-formula {
     font-size: 0.7rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-weight: 400;
 }
+
+/* ================================================================
+   THREE-LEVEL ACCORDION STYLES (Light Mode)
+   ================================================================ */
+
+/* --- Base Accordion Styles --- */
+.accordion {
+    margin-bottom: 4px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.accordion-header {
+    display: flex;
+    align-items: center;
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+    gap: 12px;
+}
+
+.accordion-header:hover {
+    filter: brightness(0.95);
+}
+
+.accordion-header .expand-icon {
+    font-size: 0.75rem;
+    width: 20px;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.accordion-title {
+    font-weight: 600;
+    min-width: 140px;
+}
+
+.accordion-metrics {
+    display: flex;
+    gap: 14px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.accordion-metrics span strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* --- Level 1: Station (Green) --- */
+.level-1-header {
+    background: var(--bg-surface);
+    border-left: 5px solid var(--accent-green);
+}
+
+.level-1-header:hover {
+    background: var(--bg-surface-hover);
+}
+
+.level-1-header .expand-icon {
+    color: var(--accent-green);
+}
+
+.level-1-title {
+    color: var(--accent-green);
+    font-size: 1.05rem;
+}
+
+.accordion.level-1 > .accordion-body {
+    background: var(--bg-level-1);
+    padding: 8px;
+}
+
+/* --- Level 2: Material (Yellow/Amber) --- */
+.level-2-header {
+    background: var(--bg-level-1);
+    border-left: 5px solid var(--accent-yellow);
+    padding: 12px 16px;
+}
+
+.level-2-header:hover {
+    background: var(--bg-surface-hover);
+}
+
+.level-2-header .expand-icon {
+    color: var(--accent-yellow);
+}
+
+.level-2-title {
+    color: var(--accent-yellow);
+    font-size: 0.95rem;
+}
+
+.accordion.level-2 > .accordion-body {
+    background: var(--bg-level-2);
+    padding: 6px;
+}
+
+/* --- Level 3: Sheet (Cyan/Blue) --- */
+.level-3-header {
+    background: var(--bg-level-2);
+    border-left: 5px solid var(--accent-cyan);
+    padding: 10px 14px;
+}
+
+.level-3-header:hover {
+    background: var(--bg-surface-hover);
+}
+
+.level-3-header .expand-icon {
+    color: var(--accent-cyan);
+}
+
+.level-3-title {
+    color: var(--accent-cyan);
+    font-size: 0.9rem;
+}
+
+.sheet-size {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-left: 8px;
+}
+
+.accordion.level-3 > .accordion-body {
+    background: var(--bg-level-3);
+    padding: 4px;
+}
+
+/* --- Parts Table (inside Level 3) --- */
+.parts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    background: var(--bg-surface);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.parts-table thead th {
+    background: var(--accent-green);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.parts-table tbody tr {
+    border-bottom: 1px solid var(--border);
+}
+
+.parts-table tbody tr:nth-child(even) {
+    background: var(--bg-level-1);
+}
+
+.parts-table tbody tr:hover {
+    background: var(--bg-surface-hover);
+}
+
+.parts-table tbody td {
+    padding: 8px 12px;
+    color: var(--text-primary);
+}
+
+.part-dims {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
 }
